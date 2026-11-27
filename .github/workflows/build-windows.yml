@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 permissions:
   contents: read
@@ -30,7 +32,20 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableCompressionInSingleFile=true
           --output publish
-      - name: Publicar EXE como artefato descargable
+      - name: Comprobar que el proceso inicia
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD "publish/RefaccionariaDesktop.exe"
+          if (-not (Test-Path $exe)) { throw "No se generó RefaccionariaDesktop.exe" }
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 8
+          $process.Refresh()
+          if ($process.HasExited) {
+            throw "La aplicación terminó durante la prueba de inicio. Código de salida: $($process.ExitCode)"
+          }
+          Stop-Process -Id $process.Id -Force
+      - name: Publicar EXE como artefacto descargable
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: RefaccionariaDesktop-Windows-x64
